@@ -6,6 +6,7 @@
 #include <iostream>
 #include<functional>
 #include "simple_hnsw.h"
+#include <chrono>
 
 int main() {
     SimpleHNSWIndex index;
@@ -15,7 +16,26 @@ int main() {
     index.insert({ 1.1, 2.1, 3.0 });
 
     Vector query = { 1.1, 2.1, 3.1 };
+
+    
+
+    using std::chrono::high_resolution_clock;
+    using std::chrono::duration_cast;
+    using std::chrono::duration;
+    using std::chrono::milliseconds;
+
+    auto t1 = high_resolution_clock::now();
     auto results = index.search(query);
+    auto t2 = high_resolution_clock::now();
+
+    /* Getting number of milliseconds as an integer. */
+    auto ms_int = duration_cast<milliseconds>(t2 - t1);
+
+    /* Getting number of milliseconds as a double. */
+    duration<double, std::milli> ms_double = t2 - t1;
+
+    std::cout << ms_int.count() << "ms\n";
+    std::cout << ms_double.count() << "ms\n";
 
     for (const auto& result : results) {
         std::cout << "Distance: " << result.first << ", NodeIndex: " << result.second << std::endl;
