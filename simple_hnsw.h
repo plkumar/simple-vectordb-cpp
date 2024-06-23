@@ -1,3 +1,6 @@
+#ifndef SIMPLE_HNSW_H
+#define SIMPLE_HNSW_H
+
 #include <vector>
 #include <queue>
 #include <cmath>
@@ -11,7 +14,7 @@ using namespace std;
 // Type definitions
 using Vector = std::vector<double>;
 using Distance = double;
-using NodeIndex = int;
+using NodeIndex = unsigned long;
 
 struct LayerNode {
     Vector vector;
@@ -103,7 +106,7 @@ std::vector<std::pair<Distance, NodeIndex>> _searchLayer(
     return nns;
 }
 
-class ExperimentalHNSWIndex {
+class SimpleHNSWIndex {
 private:
     int L;
     double mL;
@@ -111,7 +114,7 @@ private:
     std::vector<Layer> index;
 
 public:
-    ExperimentalHNSWIndex(int L = 5, double mL = 0.62, int efc = 10)
+    SimpleHNSWIndex(int L = 5, double mL = 0.62, int efc = 10)
         : L(L), mL(mL), efc(efc), index(L) {}
 
     void setIndex(const std::vector<Layer>& index) {
@@ -168,9 +171,9 @@ public:
         return "";
     }
 
-    static ExperimentalHNSWIndex fromJSON(const std::string& json) {
+    static SimpleHNSWIndex fromJSON(const std::string& json) {
         // Deserialization logic (omitted for brevity)
-        return ExperimentalHNSWIndex();
+        return SimpleHNSWIndex();
     }
 
     std::vector<uint8_t> toBinary() const {
@@ -178,28 +181,10 @@ public:
         return {};
     }
 
-    static ExperimentalHNSWIndex fromBinary(const std::vector<uint8_t>& binary) {
+    static SimpleHNSWIndex fromBinary(const std::vector<uint8_t>& binary) {
         // Deserialization logic (omitted for brevity)
-        return ExperimentalHNSWIndex();
+        return SimpleHNSWIndex();
     }
 };
 
-int main() {
-    // Example usage of the ExperimentalHNSWIndex class
-    ExperimentalHNSWIndex index;
-    Vector vec1 = { 1.0, 2.0, 3.0 };
-    Vector vec2 = { 1.0, 2.0, 2.9 };
-    index.insert(vec1);
-    index.insert(vec2);
-
-    Vector query = { 1.1, 2.1, 3.1 };
-    auto results = index.search(query);
-
-    for (const auto& result : results) {
-        std::cout << "Distance: " << result.first << ", NodeIndex: " << result.second << std::endl;
-    }
-
-    return 0;
-}
-
-
+#endif //SIMPLE_HNSW_H
