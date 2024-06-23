@@ -8,8 +8,12 @@
 #include <algorithm>
 #include <iostream>
 #include<functional>
+// #include <msgpack.hpp>
+#include <json.hpp>
+#include "not_implemented_exception.h"
 
 using namespace std;
+using json = nlohmann::json;
 
 // Type definitions
 using Vector = std::vector<double>;
@@ -167,23 +171,55 @@ public:
     }
 
     std::string toJSON() const {
-        // Serialization logic (omitted for brevity)
-        return "";
+        json jsonData;
+        jsonData["L"] = L;
+        jsonData["mL"] = mL;
+        jsonData["efc"] = efc;
+
+        for (const auto& layer : index) {
+            json layerData;
+            for (const auto& node : layer) {
+                json nodeData;
+                nodeData["vector"] = node.vector;
+                nodeData["connections"] = node.connections;
+                nodeData["layerBelow"] = node.layerBelow;
+                layerData.push_back(nodeData);
+            }
+            jsonData["index"].push_back(layerData);
+        }
+
+        return jsonData.dump();
     }
 
     static SimpleHNSWIndex fromJSON(const std::string& json) {
-        // Deserialization logic (omitted for brevity)
-        return SimpleHNSWIndex();
+        auto jsonData = json::parse(json);
+
+        int L = jsonData["L"];
+        double mL = jsonData["mL"];
+        int efc = jsonData["efc"];
+        std::vector<std::vector<LayerNode>> index(L);
+
+        for (int i = 0; i < L; ++i) {
+            for (const auto& nodeData : jsonData["index"][i]) {
+                LayerNode node;
+                node.vector = nodeData["vector"].get<std::vector<double>>();
+                node.connections = nodeData["connections"].get<std::vector<unsigned long>>();
+                node.layerBelow = nodeData["layerBelow"];
+                index[i].push_back(node);
+            }
+        }
+
+        SimpleHNSWIndex hnsw(L, mL, efc);
+        hnsw.setIndex(index);
+        return hnsw;
     }
 
     std::vector<uint8_t> toBinary() const {
-        // Serialization logic (omitted for brevity)
-        return {};
+        throw NotImplementedException("Binary serialization is not implemented yet.");
     }
 
     static SimpleHNSWIndex fromBinary(const std::vector<uint8_t>& binary) {
-        // Deserialization logic (omitted for brevity)
-        return SimpleHNSWIndex();
+        throw NotImplementedException("Binary deserialization is not implemented yet.");
     }
 };
 
