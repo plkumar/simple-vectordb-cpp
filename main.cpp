@@ -27,7 +27,7 @@ int main() {
         SimpleHNSWIndex hnswIndex = SimpleHNSWIndex::fromJSON(index.toJSON());
         std::cout << "HNSW Index created successfully from JSON!" << std::endl;
         // You can add more tests to validate the content of hnswIndex
-        auto results2 = hnswIndex.search({ 1.1, 2.1, 3.1 });
+        auto results2 = hnswIndex.search({ 1.1, 2.1, 3.1 },2);
         for (const auto& result : results2) {
             std::cout << "Distance: " << result.first << ", NodeIndex: " << result.second << std::endl;
         }
