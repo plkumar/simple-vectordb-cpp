@@ -20,11 +20,31 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(json)
 
+if (PYTHON_BINDINGS)
+# Add pybind11
+FetchContent_Declare(
+  pybind11
+  GIT_REPOSITORY https://github.com/pybind/pybind11.git
+  GIT_TAG v2.12.0
+)
+FetchContent_MakeAvailable(pybind11)
+endif()
+
+if(!EMSCRIPTEN AND !PYTHON_BINDINGS)
 # Add source files
 add_executable(SimpleHNSW main.cpp)
 
 # Link the nlohmann_json library
 target_link_libraries(SimpleHNSW PRIVATE nlohmann_json::nlohmann_json)
+endif()
+
+if(PYTHON_BINDINGS)
+# Add the bindings
+pybind11_add_module(SimpleHNSW MODULE bindings.cpp)
+
+# Link libraries to the bindings module
+target_link_libraries(SimpleHNSW PRIVATE nlohmann_json::nlohmann_json)
+endif()
 
 # Set target properties for WebAssembly
 if(EMSCRIPTEN)
