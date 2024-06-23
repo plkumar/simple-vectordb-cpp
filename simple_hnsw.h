@@ -10,12 +10,12 @@
 #include<functional>
 // #include <msgpack.hpp>
 #include <nlohmann/json.hpp>
+#include "priority_queue.h"
 #include "not_implemented_exception.h"
 
 using namespace std;
 using json = nlohmann::json;
 
-// Type definitions
 using Vector = std::vector<double>;
 using Distance = double;
 using NodeIndex = unsigned long;
@@ -27,35 +27,6 @@ struct LayerNode {
 };
 
 using Layer = std::vector<LayerNode>;
-
-// Simple Priority Queue Implementation
-template<typename T>
-class PriorityQueue {
-private:
-    std::vector<T> elements;
-    std::function<bool(T, T)> compareFn;
-
-public:
-    PriorityQueue(std::vector<T> elements, std::function<bool(T, T)> compareFn)
-        : elements(elements), compareFn(compareFn) {
-        std::sort(this->elements.begin(), this->elements.end(), this->compareFn);
-    }
-
-    void push(T element) {
-        elements.push_back(element);
-        std::sort(elements.begin(), elements.end(), compareFn);
-    }
-
-    T pop() {
-        T element = elements.front();
-        elements.erase(elements.begin());
-        return element;
-    }
-
-    bool isEmpty() const {
-        return elements.empty();
-    }
-};
 
 double EuclideanDistance(const Vector& a, const Vector& b) {
     if (a.size() != b.size()) {

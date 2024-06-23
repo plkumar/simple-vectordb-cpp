@@ -1,5 +1,5 @@
+import time
 from build import SimpleHNSW
-
 from sentence_transformers import SentenceTransformer
 from sentence_transformers.util import cos_sim
 
@@ -37,7 +37,10 @@ for embedding in embeddings:
 # hnsw.insert([ 1.1, 2.1, 3.1 ])
 # Search for the nearest neighbors
 query = model.encode("impact of higher income on medicare")
+
+start_time = time.time()
 result = hnsw.search(query, 2)
+print("--- %s seconds ---" % (time.time() - start_time))
 print("Result", result)
 
 # # Convert the index to JSON
