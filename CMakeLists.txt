@@ -16,7 +16,8 @@ endif()
 include(FetchContent)
 FetchContent_Declare(
   json
-  URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz
+  GIT_REPOSITORY https://github.com/nlohmann/json.git
+  GIT_TAG v3.11.3
 )
 FetchContent_MakeAvailable(json)
 
@@ -30,32 +31,29 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(pybind11)
 endif()
 
-if(!EMSCRIPTEN AND !PYTHON_BINDINGS)
-# Add source files
-add_executable(SimpleHNSW main.cpp)
-
-# Link the nlohmann_json library
-target_link_libraries(SimpleHNSW PRIVATE nlohmann_json::nlohmann_json)
-endif()
-
 if(PYTHON_BINDINGS)
-# Add the bindings
-pybind11_add_module(SimpleHNSW MODULE bindings.cpp)
+  # Add the bindings
+  pybind11_add_module(SimpleHNSW MODULE bindings.cpp)
 
-# Link libraries to the bindings module
-target_link_libraries(SimpleHNSW PRIVATE nlohmann_json::nlohmann_json)
+  # Link libraries to the bindings module
+  target_link_libraries(SimpleHNSW PRIVATE nlohmann_json::nlohmann_json)
+else()
+  # Add source files
+  add_executable(SimpleHNSW main.cpp)
+
+  # Link the nlohmann_json library
+  target_link_libraries(SimpleHNSW PRIVATE nlohmann_json::nlohmann_json)
 endif()
 
-# Set target properties for WebAssembly
 if(EMSCRIPTEN)
-    set_target_properties(SimpleHNSW PROPERTIES
-        OUTPUT_NAME "SimpleHNSW"
-        SUFFIX ".html"
-    )
+  set_target_properties(SimpleHNSW PROPERTIES
+  OUTPUT_NAME "SimpleHNSW"
+  SUFFIX ".html"
+  )
 
-    # Additional Emscripten linker flags
-    set_target_properties(SimpleHNSW PROPERTIES
-        # LINK_FLAGS "--bind -sENVIRONMENT=web -sMODULARIZE=1 -sEXPORT_NAME=SimpleHNSW"
-        LINK_FLAGS "--bind -sENVIRONMENT=web"
-    )
+  # Additional Emscripten linker flags
+  set_target_properties(SimpleHNSW PROPERTIES
+  # LINK_FLAGS "--bind -sENVIRONMENT=web -sMODULARIZE=1 -sEXPORT_NAME=SimpleHNSW"
+  LINK_FLAGS "--bind -sENVIRONMENT=web"
+  )
 endif()
