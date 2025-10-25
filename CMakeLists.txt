@@ -7,6 +7,9 @@ project(SimpleHNSW)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
+# Add src directory to include path
+include_directories(${CMAKE_SOURCE_DIR}/src)
+
 # Specify Emscripten toolchain file
 if(EMSCRIPTEN)
     set(CMAKE_TOOLCHAIN_FILE "${EMSCRIPTEN}/cmake/Modules/Platform/Emscripten.cmake")
@@ -33,13 +36,13 @@ endif()
 
 if(PYTHON_BINDINGS)
   # Add the bindings
-  pybind11_add_module(SimpleHNSW MODULE bindings.cpp)
+  pybind11_add_module(SimpleHNSW MODULE src/bindings.cpp)
 
   # Link libraries to the bindings module
   target_link_libraries(SimpleHNSW PRIVATE nlohmann_json::nlohmann_json)
 elseif(EMSCRIPTEN)
   # Add WASM bindings for web
-  add_executable(SimpleHNSW wasm_bindings.cpp)
+  add_executable(SimpleHNSW src/wasm_bindings.cpp)
 
   # Link the nlohmann_json library
   target_link_libraries(SimpleHNSW PRIVATE nlohmann_json::nlohmann_json)
@@ -55,7 +58,7 @@ elseif(EMSCRIPTEN)
   )
 else()
   # Add source files for native build
-  add_executable(SimpleHNSW main.cpp)
+  add_executable(SimpleHNSW src/main.cpp)
 
   # Link the nlohmann_json library
   target_link_libraries(SimpleHNSW PRIVATE nlohmann_json::nlohmann_json)
