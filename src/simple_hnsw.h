@@ -4,13 +4,10 @@
 #include <vector>
 #include <queue>
 #include <cmath>
-#include <set>
 #include <algorithm>
-#include <iostream>
-#include<functional>
+#include <stdexcept>
 // #include <msgpack.hpp>
 #include <nlohmann/json.hpp>
-#include "priority_queue.h"
 #include "not_implemented_exception.h"
 
 using namespace std;
@@ -35,7 +32,8 @@ double EuclideanDistance(const Vector& a, const Vector& b) {
 
     double sum = 0.0;
     for (size_t i = 0; i < a.size(); ++i) {
-        sum += std::pow(a[i] - b[i], 2);
+        double diff = a[i] - b[i];
+        sum += diff * diff;
     }
     return std::sqrt(sum);
 }
@@ -50,35 +48,77 @@ std::vector<std::pair<Distance, NodeIndex>> _searchLayer(
         throw std::invalid_argument("Invalid entry index");
     }
 
-    const LayerNode& graphEntry = graph[entry];
-    std::pair<Distance, NodeIndex> best = { EuclideanDistance(graphEntry.vector, query), entry };
-    std::vector<std::pair<Distance, NodeIndex>> nns = { best };
-    std::set<NodeIndex> visited = { best.second };
-    PriorityQueue<std::pair<Distance, NodeIndex>> candidates({ best }, [](auto a, auto b) { return a.first < b.first; });
+    if (ef <= 0) {
+        return {};
+    }
 
-    while (!candidates.isEmpty()) {
-        auto current = candidates.pop();
-        if (nns.back().first < current.first) break;
+    const LayerNode& graphEntry = graph[entry];
+    Distance entryDist = EuclideanDistance(graphEntry.vector, query);
+    std::vector<char> visited(graph.size(), false);
+    visited[entry] = true;
+
+    auto maxHeapComp = [](const std::pair<Distance, NodeIndex>& lhs, const std::pair<Distance, NodeIndex>& rhs) {
+        return lhs.first < rhs.first;
+    };
+
+    std::vector<std::pair<Distance, NodeIndex>> best;
+    best.reserve(static_cast<size_t>(ef));
+
+    auto emplaceBest = [&](const std::pair<Distance, NodeIndex>& candidate) {
+        if (best.size() < static_cast<size_t>(ef)) {
+            best.push_back(candidate);
+            std::push_heap(best.begin(), best.end(), maxHeapComp);
+        } else if (candidate.first < best.front().first) {
+            std::pop_heap(best.begin(), best.end(), maxHeapComp);
+            best.back() = candidate;
+            std::push_heap(best.begin(), best.end(), maxHeapComp);
+        }
+    };
+
+    emplaceBest({ entryDist, entry });
+
+    auto minHeapComp = [](const std::pair<Distance, NodeIndex>& lhs, const std::pair<Distance, NodeIndex>& rhs) {
+        return lhs.first > rhs.first;
+    };
+    std::priority_queue<
+        std::pair<Distance, NodeIndex>,
+        std::vector<std::pair<Distance, NodeIndex>>,
+        decltype(minHeapComp)> candidates(minHeapComp);
+
+    candidates.emplace(entryDist, entry);
+
+    while (!candidates.empty()) {
+        auto current = candidates.top();
+        candidates.pop();
+
+        if (!best.empty() && current.first > best.front().first) {
+            continue;
+        }
 
         const LayerNode& graphCurrent = graph[current.second];
-        for (const auto& e : graphCurrent.connections) {
-            const LayerNode& graphE = graph[e];
-            double dist = EuclideanDistance(graphE.vector, query);
-            if (visited.find(e) == visited.end()) {
-                visited.insert(e);
-                if (dist < nns.back().first || nns.size() < ef) {
-                    candidates.push({ dist, e });
-                    nns.push_back({ dist, e });
-                    std::sort(nns.begin(), nns.end(), [](auto a, auto b) { return a.first < b.first; });
-                    if (nns.size() > ef) {
-                        nns.pop_back();
-                    }
-                }
+        for (NodeIndex neighbor : graphCurrent.connections) {
+            if (neighbor >= graph.size()) {
+                continue;
+            }
+            if (visited[neighbor]) {
+                continue;
+            }
+            visited[neighbor] = true;
+
+            const LayerNode& graphNeighbor = graph[neighbor];
+            Distance dist = EuclideanDistance(graphNeighbor.vector, query);
+
+            if (best.size() < static_cast<size_t>(ef) || dist < best.front().first) {
+                candidates.emplace(dist, neighbor);
+                emplaceBest({ dist, neighbor });
             }
         }
     }
 
-    return nns;
+    std::sort(best.begin(), best.end(), [](const auto& lhs, const auto& rhs) {
+        return lhs.first < rhs.first;
+    });
+    return best;
 }
 
 class SimpleHNSWIndex {
@@ -86,14 +126,78 @@ private:
     int L;
     double mL;
     int efc;
+    int maxConnections;
     std::vector<Layer> index;
 
+    static bool containsConnection(const LayerNode& node, NodeIndex target) {
+        return std::find(node.connections.begin(), node.connections.end(), target) != node.connections.end();
+    }
+
+    void pruneNodeConnections(Layer& layer, NodeIndex nodeIndex) {
+        if (nodeIndex >= layer.size()) {
+            return;
+        }
+
+        LayerNode& node = layer[nodeIndex];
+        if (node.connections.empty()) {
+            return;
+        }
+
+        std::vector<std::pair<Distance, NodeIndex>> scored;
+        scored.reserve(node.connections.size());
+        for (NodeIndex connection : node.connections) {
+            if (connection == nodeIndex || connection >= layer.size()) {
+                continue;
+            }
+            const LayerNode& neighbor = layer[connection];
+            scored.emplace_back(EuclideanDistance(node.vector, neighbor.vector), connection);
+        }
+
+        if (scored.empty()) {
+            node.connections.clear();
+            return;
+        }
+
+        size_t target = static_cast<size_t>(maxConnections);
+        if (scored.size() > target) {
+            using ScoreDifferenceType = std::vector<std::pair<Distance, NodeIndex>>::difference_type;
+            auto nth = scored.begin() + static_cast<ScoreDifferenceType>(target);
+            std::nth_element(
+                scored.begin(),
+                nth,
+                scored.end(),
+                [](const auto& lhs, const auto& rhs) { return lhs.first < rhs.first; });
+            scored.resize(target);
+        }
+
+        std::sort(scored.begin(), scored.end(), [](const auto& lhs, const auto& rhs) {
+            return lhs.first < rhs.first;
+        });
+
+        node.connections.clear();
+        node.connections.reserve(scored.size());
+        for (const auto& entry : scored) {
+            if (!containsConnection(node, entry.second)) {
+                node.connections.push_back(entry.second);
+            }
+        }
+    }
+
 public:
-    SimpleHNSWIndex(int L = 5, double mL = 0.62, int efc = 10)
-        : L(L), mL(mL), efc(efc), index(L) {}
+    SimpleHNSWIndex(int L = 5, double mL = 0.62, int efc = 10, int maxConnectionsPerLayer = 16)
+        : L(L),
+          mL(mL),
+          efc(efc),
+          maxConnections(std::max(1, maxConnectionsPerLayer)),
+          index(L) {}
 
     void setIndex(const std::vector<Layer>& index) {
         this->index = index;
+        for (auto& layer : this->index) {
+            for (size_t i = 0; i < layer.size(); ++i) {
+                pruneNodeConnections(layer, static_cast<NodeIndex>(i));
+            }
+        }
     }
 
     void insert(const Vector& vec) {
@@ -104,7 +208,7 @@ public:
             Layer& graph = index[n];
 
             if (graph.empty()) {
-                graph.push_back({ vec, {}, n < L - 1 ? index[n + 1].size() : -1 });
+                graph.push_back({ vec, {}, n < L - 1 ? static_cast<NodeIndex>(index[n + 1].size()) : static_cast<NodeIndex>(-1) });
                 continue;
             }
 
@@ -112,13 +216,37 @@ public:
                 auto searchLayerResult = _searchLayer(graph, startV, vec, 1);
                 startV = searchLayerResult[0].second;
             } else {
-                LayerNode node = { vec, {}, n < L - 1 ? index[n + 1].size() : -1 };
+                LayerNode node = { vec, {}, n < L - 1 ? static_cast<NodeIndex>(index[n + 1].size()) : static_cast<NodeIndex>(-1) };
                 auto nns = _searchLayer(graph, startV, vec, efc);
+                std::vector<NodeIndex> selectedNeighbors;
+                selectedNeighbors.reserve(std::min(static_cast<size_t>(maxConnections), nns.size()));
                 for (const auto& nn : nns) {
-                    node.connections.push_back(nn.second);
-                    graph[nn.second].connections.push_back(graph.size());
+                    if (selectedNeighbors.size() >= static_cast<size_t>(maxConnections)) {
+                        break;
+                    }
+                    selectedNeighbors.push_back(nn.second);
                 }
+                node.connections = selectedNeighbors;
+
+                NodeIndex newIndex = static_cast<NodeIndex>(graph.size());
                 graph.push_back(node);
+                pruneNodeConnections(graph, newIndex);
+
+                for (NodeIndex neighborIndex : selectedNeighbors) {
+                    if (neighborIndex >= graph.size()) {
+                        continue;
+                    }
+                    LayerNode& neighborNode = graph[neighborIndex];
+                    if (!containsConnection(neighborNode, newIndex)) {
+                        neighborNode.connections.push_back(newIndex);
+                    }
+                    pruneNodeConnections(graph, neighborIndex);
+                    if (!containsConnection(neighborNode, newIndex)) {
+                        auto& newConnections = graph[newIndex].connections;
+                        newConnections.erase(std::remove(newConnections.begin(), newConnections.end(), neighborIndex), newConnections.end());
+                    }
+                }
+                pruneNodeConnections(graph, newIndex);
                 startV = graph[startV].layerBelow;
             }
         }
@@ -146,6 +274,7 @@ public:
         jsonData["L"] = L;
         jsonData["mL"] = mL;
         jsonData["efc"] = efc;
+        jsonData["maxConnections"] = maxConnections;
 
         for (const auto& layer : index) {
             json layerData;
@@ -168,6 +297,7 @@ public:
         int L = jsonData["L"];
         double mL = jsonData["mL"];
         int efc = jsonData["efc"];
+        int maxConnections = jsonData.value("maxConnections", 16);
         std::vector<std::vector<LayerNode>> index(L);
 
         for (int i = 0; i < L; ++i) {
@@ -180,7 +310,7 @@ public:
             }
         }
 
-        SimpleHNSWIndex hnsw(L, mL, efc);
+        SimpleHNSWIndex hnsw(L, mL, efc, maxConnections);
         hnsw.setIndex(index);
         return hnsw;
     }

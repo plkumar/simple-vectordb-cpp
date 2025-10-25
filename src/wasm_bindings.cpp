@@ -31,8 +31,8 @@ private:
     SimpleHNSWIndex index;
 
 public:
-    SimpleHNSWIndexWrapper(int L = 5, double mL = 0.62, int efc = 10)
-        : index(L, mL, efc) {}
+    SimpleHNSWIndexWrapper(int L = 5, double mL = 0.62, int efc = 10, int maxConnections = 16)
+        : index(L, mL, efc, maxConnections) {}
 
     void insert(const val& jsVector) {
         Vector vec = convertJSArrayToVector(jsVector);
@@ -63,6 +63,7 @@ EMSCRIPTEN_BINDINGS(simple_hnsw) {
         .constructor<int>()
         .constructor<int, double>()
         .constructor<int, double, int>()
+        .constructor<int, double, int, int>()
         .function("insert", &SimpleHNSWIndexWrapper::insert)
         .function("search", &SimpleHNSWIndexWrapper::search)
         .function("toJSON", &SimpleHNSWIndexWrapper::toJSON)

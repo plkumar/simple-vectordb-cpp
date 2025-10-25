@@ -7,28 +7,49 @@
 #include <set>
 #include <algorithm>
 #include <iostream>
-#include<functional>
+#include <functional>
+#include <utility>
 
 template<typename T>
 class PriorityQueue {
 private:
     std::vector<T> elements;
-    std::function<bool(T, T)> compareFn;
+    using Compare = std::function<bool(const T&, const T&)>;
+    Compare compareFn;
 
-public:
-    PriorityQueue(std::vector<T> elements, std::function<bool(T, T)> compareFn)
-        : elements(elements), compareFn(compareFn) {
-        std::sort(this->elements.begin(), this->elements.end(), this->compareFn);
+    struct HeapComparator {
+        Compare compareFn;
+
+        bool operator()(const T& lhs, const T& rhs) const {
+            // Flip operands so compareFn's "smaller" element rises to the top.
+            return compareFn(rhs, lhs);
+        }
+    };
+
+    HeapComparator heapComparator() const {
+        return HeapComparator{ compareFn };
     }
 
-    void push(T element) {
+public:
+    PriorityQueue(std::vector<T> elements, Compare compareFn)
+        : elements(std::move(elements)), compareFn(std::move(compareFn)) {
+        std::make_heap(this->elements.begin(), this->elements.end(), heapComparator());
+    }
+
+    void push(const T& element) {
         elements.push_back(element);
-        std::sort(elements.begin(), elements.end(), compareFn);
+        std::push_heap(elements.begin(), elements.end(), heapComparator());
+    }
+
+    void push(T&& element) {
+        elements.push_back(std::move(element));
+        std::push_heap(elements.begin(), elements.end(), heapComparator());
     }
 
     T pop() {
-        T element = elements.front();
-        elements.erase(elements.begin());
+        std::pop_heap(elements.begin(), elements.end(), heapComparator());
+        T element = std::move(elements.back());
+        elements.pop_back();
         return element;
     }
 
