@@ -6,3 +6,4 @@ build
 build-wasm
 build-wasm-pkg
 node_modules
+packages/tests/coverage/**
