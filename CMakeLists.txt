@@ -37,23 +37,26 @@ if(PYTHON_BINDINGS)
 
   # Link libraries to the bindings module
   target_link_libraries(SimpleHNSW PRIVATE nlohmann_json::nlohmann_json)
+elseif(EMSCRIPTEN)
+  # Add WASM bindings for web
+  add_executable(SimpleHNSW wasm_bindings.cpp)
+
+  # Link the nlohmann_json library
+  target_link_libraries(SimpleHNSW PRIVATE nlohmann_json::nlohmann_json)
+
+  set_target_properties(SimpleHNSW PROPERTIES
+    OUTPUT_NAME "simple-vectordb"
+    SUFFIX ".js"
+  )
+
+  # Additional Emscripten linker flags for modular build
+  set_target_properties(SimpleHNSW PROPERTIES
+    LINK_FLAGS "--bind -sENVIRONMENT=web,node -sMODULARIZE=1 -sEXPORT_NAME=createSimpleVectorDB -sEXPORT_ES6=1 -sALLOW_MEMORY_GROWTH=1 -sMAXIMUM_MEMORY=4GB"
+  )
 else()
-  # Add source files
+  # Add source files for native build
   add_executable(SimpleHNSW main.cpp)
 
   # Link the nlohmann_json library
   target_link_libraries(SimpleHNSW PRIVATE nlohmann_json::nlohmann_json)
-endif()
-
-if(EMSCRIPTEN)
-  set_target_properties(SimpleHNSW PROPERTIES
-  OUTPUT_NAME "SimpleHNSW"
-  SUFFIX ".html"
-  )
-
-  # Additional Emscripten linker flags
-  set_target_properties(SimpleHNSW PROPERTIES
-  # LINK_FLAGS "--bind -sENVIRONMENT=web -sMODULARIZE=1 -sEXPORT_NAME=SimpleHNSW"
-  LINK_FLAGS "--bind -sENVIRONMENT=web"
-  )
 endif()

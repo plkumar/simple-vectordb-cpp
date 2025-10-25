@@ -1,9 +1,38 @@
 # simple-vectordb-cpp :: an experimental Vector index for embedding search.
 
-Search Implementaion:
+A fast HNSW (Hierarchical Navigable Small World) vector database implementation in C++ with WebAssembly bindings for JavaScript, React, and Angular.
+
+Search Implementation:
 
 ![Search](images/search.png)
 
+## 📦 JavaScript/TypeScript Packages
+
+This project includes ready-to-use packages for web applications:
+
+- **[@simple-vectordb/wasm](./packages/simple-vectordb-wasm)** - Core WebAssembly module
+- **[@simple-vectordb/react](./packages/react-simple-vectordb)** - React hooks and components
+- **[@simple-vectordb/angular](./packages/angular-simple-vectordb)** - Angular service and module
+
+See the [packages documentation](./packages/README.md) for installation and usage.
+
+## 🚀 Quick Start (JavaScript)
+
+```bash
+npm install @simple-vectordb/wasm
+```
+
+```javascript
+import { initializeWasm, SimpleVectorDB } from '@simple-vectordb/wasm';
+
+await initializeWasm();
+const db = new SimpleVectorDB();
+
+db.insert([1.0, 2.0, 3.0]);
+const results = db.search([1.1, 2.1, 3.1], 5);
+```
+
+---
 
 ### Build
 
@@ -32,11 +61,27 @@ To build the project, follow these steps:
     ```
 
 
-#### Compile for Web Assembly using Emscripten
+#### Compile for WebAssembly (Packages)
 
-``` emcc -std=c++17 main.cpp -o ./index.html -I ./json/single_include/nlohmann ```
+To build the WebAssembly packages for React and Angular:
 
-To build this project for WebAssembly, follow these steps:
+```bash
+# Make sure Emscripten is in your PATH
+source /path/to/emsdk/emsdk_env.sh
+
+# Run the build script
+./build-packages.sh
+```
+
+This will create the WASM module and copy it to the package directories.
+
+#### Compile for WebAssembly (Manual)
+
+```bash
+emcc -std=c++17 main.cpp -o ./index.html -I ./json/single_include/nlohmann
+```
+
+To build this project for WebAssembly manually, follow these steps:
 
 1. Install Emscripten by following the instructions here.
 

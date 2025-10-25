@@ -1,0 +1,33 @@
+{
+  "name": "@simple-vectordb/react",
+  "version": "1.0.0",
+  "description": "React bindings for SimpleVectorDB - A fast HNSW-based vector database",
+  "main": "src/index.js",
+  "module": "src/index.js",
+  "types": "src/index.d.ts",
+  "files": [
+    "src"
+  ],
+  "peerDependencies": {
+    "react": "^16.8.0 || ^17.0.0 || ^18.0.0"
+  },
+  "dependencies": {
+    "@simple-vectordb/wasm": "^1.0.0"
+  },
+  "keywords": [
+    "react",
+    "vector-database",
+    "hnsw",
+    "wasm",
+    "hooks",
+    "machine-learning",
+    "embeddings",
+    "similarity-search"
+  ],
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/simple-vectordb-cpp"
+  }
+}
