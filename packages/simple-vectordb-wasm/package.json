@@ -6,10 +6,13 @@
   "types": "simple-vectordb.d.ts",
   "files": [
     "index.js",
+    "indexeddb-storage.js",
     "simple-vectordb.js",
     "simple-vectordb.wasm",
     "simple-vectordb.d.ts",
-    "README.md"
+    "README.md",
+    "INDEXEDDB_GUIDE.md",
+    "example-indexeddb.html"
   ],
   "scripts": {
     "build": "npm run build:wasm",
@@ -25,10 +28,10 @@
     "similarity-search",
     "nearest-neighbors"
   ],
-  "author": "",
+  "author": "Lakshman Peethani",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/plkumar/simple-vectordb-cpp"
+    "url": "https://github.com/nzen/simple-vectordb-cpp"
   }
 }

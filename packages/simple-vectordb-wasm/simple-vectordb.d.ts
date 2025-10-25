@@ -7,6 +7,17 @@ export interface SearchResult {
   nodeIndex: number;
 }
 
+export interface IndexedDBMetadata {
+  [key: string]: any;
+}
+
+export interface StoredIndex {
+  id: string;
+  name: string;
+  timestamp: number;
+  metadata: IndexedDBMetadata;
+}
+
 export interface SimpleHNSWIndex {
   /**
    * Insert a vector into the index
@@ -59,3 +70,40 @@ export interface SimpleVectorDBModule {
  * Factory function to create the WASM module
  */
 export default function createSimpleVectorDB(): Promise<SimpleVectorDBModule>;
+
+/**
+ * SimpleVectorDB JavaScript wrapper class
+ */
+export class SimpleVectorDB {
+  constructor(L?: number, mL?: number, efc?: number);
+  
+  insert(vector: number[]): void;
+  search(query: number[], k?: number): SearchResult[];
+  toJSON(): string;
+  delete(): void;
+  
+  saveToIndexedDB(name: string, metadata?: IndexedDBMetadata): Promise<void>;
+  
+  static fromJSON(json: string): Promise<SimpleVectorDB>;
+  static loadFromIndexedDB(name: string): Promise<SimpleVectorDB>;
+  static deleteFromIndexedDB(name: string): Promise<void>;
+  static listIndexedDBIndexes(): Promise<StoredIndex[]>;
+  static indexedDBExists(name: string): Promise<boolean>;
+  static clearIndexedDB(): Promise<void>;
+}
+
+/**
+ * IndexedDB Storage Manager
+ */
+export class IndexedDBStorage {
+  static save(name: string, json: string, metadata?: IndexedDBMetadata): Promise<void>;
+  static load(name: string): Promise<{ data: string; metadata: IndexedDBMetadata; timestamp: number }>;
+  static delete(name: string): Promise<void>;
+  static list(): Promise<StoredIndex[]>;
+  static exists(name: string): Promise<boolean>;
+  static clear(): Promise<void>;
+  static getStorageSize(): Promise<number>;
+}
+
+export function initializeWasm(): Promise<void>;
+export function getWasmModule(): SimpleVectorDBModule;

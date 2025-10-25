@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SimpleVectorDB IndexedDB Example</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 { color: #333; margin-top: 0; }
+        h2 { color: #666; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        .section { margin: 20px 0; }
+        input[type="text"], input[type="number"] {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin: 5px;
+            width: 200px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .secondary { background: #6c757d; }
+        .secondary:hover { background: #545b62; }
+        .danger { background: #dc3545; }
+        .danger:hover { background: #c82333; }
+        .success { background: #28a745; }
+        .success:hover { background: #218838; }
+        .output {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th { background: #f8f9fa; font-weight: 600; }
+        .list-item {
+            padding: 10px;
+            margin: 5px 0;
+            background: #f8f9fa;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 SimpleVectorDB IndexedDB Demo</h1>
+        <div class="status" id="status">Initializing WASM module...</div>
+
+        <div class="section">
+            <h2>Insert Vectors</h2>
+            <input type="text" id="vectorInput" placeholder="1.0, 2.0, 3.0" value="1.0, 2.0, 3.0">
+            <button onclick="insertVector()">Insert Vector</button>
+            <button class="secondary" onclick="insertSampleVectors()">Insert Sample Data</button>
+        </div>
+
+        <div class="section">
+            <h2>Search</h2>
+            <input type="text" id="searchQuery" placeholder="1.1, 2.1, 3.1" value="1.1, 2.1, 3.1">
+            <input type="number" id="searchK" value="5" min="1" max="50" style="width: 80px;">
+            <button onclick="searchVectors()">Search</button>
+            <div class="output" id="searchResults"></div>
+        </div>
+
+        <div class="section">
+            <h2>IndexedDB Persistence</h2>
+            <input type="text" id="dbName" placeholder="Database name" value="my-vectors">
+            <input type="text" id="dbDescription" placeholder="Description (optional)" value="">
+            <br>
+            <button class="success" onclick="saveToIndexedDB()">💾 Save to IndexedDB</button>
+            <button onclick="loadFromIndexedDB()">📂 Load from IndexedDB</button>
+            <button class="danger" onclick="deleteFromIndexedDB()">🗑️ Delete</button>
+            <button class="secondary" onclick="listIndexedDBs()">📋 List All</button>
+            <button class="danger" onclick="clearIndexedDB()">⚠️ Clear All</button>
+        </div>
+
+        <div class="section">
+            <h2>Stored Databases</h2>
+            <div id="storedList"></div>
+        </div>
+
+        <div class="section">
+            <h2>Database Info</h2>
+            <button class="secondary" onclick="showDatabaseJSON()">View JSON</button>
+            <button class="secondary" onclick="getStorageSize()">Storage Size</button>
+            <button class="danger" onclick="clearDatabase()">Clear Current DB</button>
+            <div class="output" id="infoOutput"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeWasm, SimpleVectorDB, IndexedDBStorage } from './index.js';
+        
+        let db = null;
+        
+        // Initialize
+        async function init() {
+            try {
+                await initializeWasm();
+                db = new SimpleVectorDB(5, 0.62, 10);
+                document.getElementById('status').innerHTML = '✅ Ready! Database initialized.';
+                document.getElementById('status').style.background = '#d4edda';
+                document.getElementById('status').style.borderColor = '#c3e6cb';
+                document.getElementById('status').style.color = '#155724';
+                await listIndexedDBs();
+            } catch (error) {
+                document.getElementById('status').innerHTML = `❌ Error: ${error.message}`;
+                document.getElementById('status').style.background = '#f8d7da';
+                document.getElementById('status').style.borderColor = '#f5c6cb';
+                document.getElementById('status').style.color = '#721c24';
+            }
+        }
+        
+        function parseVector(str) {
+            return str.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
+        }
+        
+        window.insertVector = function() {
+            try {
+                const vector = parseVector(document.getElementById('vectorInput').value);
+                if (vector.length === 0) {
+                    alert('Invalid vector format');
+                    return;
+                }
+                db.insert(vector);
+                document.getElementById('status').innerHTML = `✅ Inserted vector: [${vector.join(', ')}]`;
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            }
+        };
+        
+        window.insertSampleVectors = function() {
+            const samples = [
+                [1.0, 2.0, 3.0],
+                [1.0, 2.0, 3.1],
+                [1.1, 2.1, 3.0],
+                [2.0, 3.0, 4.0],
+                [2.1, 3.1, 4.1],
+                [1.5, 2.5, 3.5],
+                [0.9, 1.9, 2.9],
+                [3.0, 4.0, 5.0]
+            ];
+            samples.forEach(v => db.insert(v));
+            document.getElementById('status').innerHTML = `✅ Inserted ${samples.length} sample vectors`;
+        };
+        
+        window.searchVectors = function() {
+            try {
+                const query = parseVector(document.getElementById('searchQuery').value);
+                const k = parseInt(document.getElementById('searchK').value);
+                
+                if (query.length === 0) {
+                    alert('Invalid query format');
+                    return;
+                }
+                
+                const results = db.search(query, k);
+                const output = results.map((r, i) => 
+                    `${i + 1}. Node ${r.nodeIndex}: Distance = ${r.distance.toFixed(4)}`
+                ).join('\n');
+                
+                document.getElementById('searchResults').textContent = 
+                    `Query: [${query.join(', ')}]\nResults (k=${k}):\n\n${output}`;
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            }
+        };
+        
+        window.saveToIndexedDB = async function() {
+            try {
+                const name = document.getElementById('dbName').value;
+                const description = document.getElementById('dbDescription').value;
+                
+                if (!name) {
+                    alert('Please enter a database name');
+                    return;
+                }
+                
+                const metadata = {
+                    description: description || 'Vector database',
+                    savedAt: new Date().toISOString()
+                };
+                
+                await db.saveToIndexedDB(name, metadata);
+                document.getElementById('status').innerHTML = `✅ Saved to IndexedDB as "${name}"`;
+                await listIndexedDBs();
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            }
+        };
+        
+        window.loadFromIndexedDB = async function() {
+            try {
+                const name = document.getElementById('dbName').value;
+                
+                if (!name) {
+                    alert('Please enter a database name');
+                    return;
+                }
+                
+                if (db) db.delete();
+                db = await SimpleVectorDB.loadFromIndexedDB(name);
+                document.getElementById('status').innerHTML = `✅ Loaded "${name}" from IndexedDB`;
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            }
+        };
+        
+        window.deleteFromIndexedDB = async function() {
+            try {
+                const name = document.getElementById('dbName').value;
+                
+                if (!name) {
+                    alert('Please enter a database name');
+                    return;
+                }
+                
+                if (confirm(`Delete "${name}" from IndexedDB?`)) {
+                    await SimpleVectorDB.deleteFromIndexedDB(name);
+                    document.getElementById('status').innerHTML = `✅ Deleted "${name}" from IndexedDB`;
+                    await listIndexedDBs();
+                }
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            }
+        };
+        
+        window.listIndexedDBs = async function() {
+            try {
+                const indexes = await SimpleVectorDB.listIndexedDBIndexes();
+                const listDiv = document.getElementById('storedList');
+                
+                if (indexes.length === 0) {
+                    listDiv.innerHTML = '<p style="color: #999;">No stored databases</p>';
+                    return;
+                }
+                
+                listDiv.innerHTML = indexes.map(idx => `
+                    <div class="list-item">
+                        <div>
+                            <strong>${idx.name}</strong><br>
+                            <small>Saved: ${new Date(idx.timestamp).toLocaleString()}</small><br>
+                            <small>${idx.metadata.description || 'No description'}</small>
+                        </div>
+                        <button class="secondary" onclick="loadSpecific('${idx.name}')">Load</button>
+                    </div>
+                `).join('');
+            } catch (error) {
+                document.getElementById('storedList').innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+            }
+        };
+        
+        window.loadSpecific = async function(name) {
+            document.getElementById('dbName').value = name;
+            await loadFromIndexedDB();
+        };
+        
+        window.clearIndexedDB = async function() {
+            if (confirm('Clear ALL stored databases? This cannot be undone!')) {
+                try {
+                    await SimpleVectorDB.clearIndexedDB();
+                    document.getElementById('status').innerHTML = '✅ Cleared all IndexedDB data';
+                    await listIndexedDBs();
+                } catch (error) {
+                    alert(`Error: ${error.message}`);
+                }
+            }
+        };
+        
+        window.showDatabaseJSON = function() {
+            try {
+                const json = db.toJSON();
+                const parsed = JSON.parse(json);
+                document.getElementById('infoOutput').textContent = 
+                    JSON.stringify(parsed, null, 2);
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            }
+        };
+        
+        window.getStorageSize = async function() {
+            try {
+                const size = await IndexedDBStorage.getStorageSize();
+                const kb = (size / 1024).toFixed(2);
+                const mb = (size / 1024 / 1024).toFixed(2);
+                document.getElementById('infoOutput').textContent = 
+                    `Total IndexedDB Storage:\n${size} bytes\n${kb} KB\n${mb} MB`;
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            }
+        };
+        
+        window.clearDatabase = function() {
+            if (confirm('Clear current database? This will not affect IndexedDB storage.')) {
+                db.delete();
+                db = new SimpleVectorDB(5, 0.62, 10);
+                document.getElementById('status').innerHTML = '✅ Database cleared';
+                document.getElementById('searchResults').textContent = '';
+                document.getElementById('infoOutput').textContent = '';
+            }
+        };
+        
+        // Initialize on load
+        init();
+    </script>
+</body>
+</html>

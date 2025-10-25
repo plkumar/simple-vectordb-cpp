@@ -1,4 +1,5 @@
 import createSimpleVectorDB from './simple-vectordb.js';
+import { IndexedDBStorage } from './indexeddb-storage.js';
 
 let wasmModule = null;
 
@@ -85,6 +86,64 @@ export class SimpleVectorDB {
       this.index = null;
     }
   }
+
+  /**
+   * Save the index to IndexedDB
+   * @param {string} name - Name/key for the stored index
+   * @param {Object} metadata - Optional metadata to store with the index
+   * @returns {Promise<void>}
+   */
+  async saveToIndexedDB(name, metadata = {}) {
+    const json = this.toJSON();
+    await IndexedDBStorage.save(name, json, metadata);
+  }
+
+  /**
+   * Load an index from IndexedDB
+   * @param {string} name - Name/key of the stored index
+   * @returns {Promise<SimpleVectorDB>}
+   */
+  static async loadFromIndexedDB(name) {
+    const { data } = await IndexedDBStorage.load(name);
+    return SimpleVectorDB.fromJSON(data);
+  }
+
+  /**
+   * Delete an index from IndexedDB
+   * @param {string} name - Name/key of the stored index
+   * @returns {Promise<void>}
+   */
+  static async deleteFromIndexedDB(name) {
+    await IndexedDBStorage.delete(name);
+  }
+
+  /**
+   * List all stored indexes in IndexedDB
+   * @returns {Promise<Array<{id: string, name: string, timestamp: number, metadata: Object}>>}
+   */
+  static async listIndexedDBIndexes() {
+    return IndexedDBStorage.list();
+  }
+
+  /**
+   * Check if an index exists in IndexedDB
+   * @param {string} name - Name/key of the index
+   * @returns {Promise<boolean>}
+   */
+  static async indexedDBExists(name) {
+    return IndexedDBStorage.exists(name);
+  }
+
+  /**
+   * Clear all indexes from IndexedDB
+   * @returns {Promise<void>}
+   */
+  static async clearIndexedDB() {
+    await IndexedDBStorage.clear();
+  }
 }
+
+// Export IndexedDBStorage for advanced usage
+export { IndexedDBStorage };
 
 export default SimpleVectorDB;
