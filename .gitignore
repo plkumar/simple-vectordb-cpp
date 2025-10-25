@@ -4,3 +4,5 @@ main
 **/.DS_Store
 build
 build-wasm
+build-wasm-pkg
+node_modules
