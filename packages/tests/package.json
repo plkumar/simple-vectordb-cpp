@@ -1,0 +1,35 @@
+{
+  "name": "@simple-vectordb/wasm-tests",
+  "version": "1.0.0",
+  "description": "Unit tests for @simple-vectordb/wasm",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
+    "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
+    "test:verbose": "node --experimental-vm-modules node_modules/jest/bin/jest.js --verbose"
+  },
+  "devDependencies": {
+    "@jest/globals": "^29.7.0",
+    "fake-indexeddb": "^5.0.2",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0"
+  },
+  "jest": {
+    "testEnvironment": "jsdom",
+    "setupFiles": ["<rootDir>/setup.js"],
+    "transform": {},
+    "testMatch": [
+      "**/__tests__/**/*.test.js"
+    ],
+    "collectCoverageFrom": [
+      "../simple-vectordb-wasm/**/*.js",
+      "!../simple-vectordb-wasm/simple-vectordb.js",
+      "!../simple-vectordb-wasm/test-*.js",
+      "!../simple-vectordb-wasm/example-*.html"
+    ],
+    "coverageDirectory": "coverage",
+    "coverageReporters": ["text", "lcov", "html"]
+  }
+}
