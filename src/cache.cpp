@@ -4,22 +4,16 @@
 #include <chrono>
 #include "lru_cache.h"
 
+// Provide a thread-safe initialization via function-local static
 class Cache {
 private:
-    static std::unique_ptr<LRUCache<std::string, std::vector<std::any>>> instance;
-
     Cache() {}
 
 public:
+    // Return a reference to a process-wide cache instance.
+    // Function-local static ensures thread-safe initialization (C++11+).
     static LRUCache<std::string, std::vector<std::any>>& getInstance(size_t max = 10000, std::chrono::milliseconds maxAge = std::chrono::milliseconds(1000 * 60 * 10)) {
-        if (!instance) {
-            instance = std::make_unique<LRUCache<std::string, std::vector<std::any>>>(max, maxAge);
-        }
-        return *instance;
+        static LRUCache<std::string, std::vector<std::any>> instance(max, maxAge);
+        return instance;
     }
 };
-
-// Initialize the static member
-std::unique_ptr<LRUCache<std::string, std::vector<std::any>>> Cache::instance = nullptr;
-
-

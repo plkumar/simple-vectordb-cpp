@@ -3,91 +3,99 @@
 
 #include <unordered_map>
 #include <list>
-#include <stdexcept>
 #include <chrono>
-#include <memory>
-#include <vector>
-#include <string>
-#include <any>
+#include <mutex>
+#include <optional>
+#include <stdexcept>
+#include <utility>
+#include <algorithm>
 
-// LRUCache template class
 template<typename Key, typename Value>
 class LRUCache {
-private:
-    using Timestamp = std::chrono::steady_clock::time_point;
+public:
+    using Clock = std::chrono::steady_clock;
+    using Timestamp = Clock::time_point;
 
+    LRUCache(size_t maxSize, std::chrono::milliseconds maxAge = std::chrono::milliseconds(0))
+        : maxSize_(std::max<size_t>(1, maxSize)), maxAge_(maxAge) {}
+
+    // Put (copy)
+    void put(const Key& key, const Value& value) {
+        put_impl(key, value);
+    }
+
+    // Put (move)
+    void put(Key&& key, Value&& value) {
+        put_impl(std::move(key), std::move(value));
+    }
+
+    // Get: returns optional<Value> to avoid throwing for missing keys
+    std::optional<Value> get(const Key& key) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto it = map_.find(key);
+        if (it == map_.end()) return std::nullopt;
+        // move node to front
+        item_list_.splice(item_list_.begin(), item_list_, it->second);
+        it->second->second.timestamp = Clock::now();
+        return it->second->second.value;
+    }
+
+    bool contains(const Key& key) const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return map_.find(key) != map_.end();
+    }
+
+    size_t size() const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return map_.size();
+    }
+
+    void clear() {
+        std::lock_guard<std::mutex> lock(mutex_);
+        item_list_.clear();
+        map_.clear();
+    }
+
+private:
     struct CacheItem {
         Value value;
         Timestamp timestamp;
     };
 
-    std::list<std::pair<Key, CacheItem>> itemList;
-    std::unordered_map<Key, typename decltype(itemList)::iterator> itemMap;
-    size_t maxSize;
-    std::chrono::milliseconds maxAge;
+    using ListIt = typename std::list<std::pair<Key, CacheItem>>::iterator;
 
-    void moveToFront(typename decltype(itemList)::iterator it) {
-        itemList.splice(itemList.begin(), itemList, it);
-    }
-
-    void evict() {
-        while (itemList.size() > maxSize || (maxAge.count() > 0 && !itemList.empty() &&
-                std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - itemList.back().second.timestamp).count() > maxAge.count())) {
-            itemMap.erase(itemList.back().first);
-            itemList.pop_back();
-        }
-    }
-
-public:
-    LRUCache(size_t maxSize, std::chrono::milliseconds maxAge = std::chrono::milliseconds(0))
-        : maxSize(maxSize), maxAge(maxAge) {}
-
-    void put(const Key& key, const Value& value) {
-        auto now = std::chrono::steady_clock::now();
-        auto it = itemMap.find(key);
-        if (it != itemMap.end()) {
-            it->second->second.value = value;
+    template<typename K, typename V>
+    void put_impl(K&& key, V&& value) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto now = Clock::now();
+        auto it = map_.find(key);
+        if (it != map_.end()) {
+            // Update existing
+            it->second->second.value = std::forward<V>(value);
             it->second->second.timestamp = now;
-            moveToFront(it->second);
+            item_list_.splice(item_list_.begin(), item_list_, it->second);
         } else {
-            itemList.push_front({ key, { value, now } });
-            itemMap[key] = itemList.begin();
+            // Insert new
+            item_list_.emplace_front(std::forward<K>(key), CacheItem{ std::forward<V>(value), now });
+            map_[item_list_.begin()->first] = item_list_.begin();
+            evict_if_needed();
         }
-        evict();
     }
 
-    Value get(const Key& key) {
-        auto it = itemMap.find(key);
-        if (it == itemMap.end()) {
-            throw std::runtime_error("Key not found");
+    void evict_if_needed() {
+        while (item_list_.size() > maxSize_ ||
+               (maxAge_.count() > 0 && !item_list_.empty() &&
+                std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - item_list_.back().second.timestamp) > maxAge_)) {
+            map_.erase(item_list_.back().first);
+            item_list_.pop_back();
         }
-        moveToFront(it->second);
-        return it->second->second.value;
     }
 
-    bool contains(const Key& key) const {
-        return itemMap.find(key) != itemMap.end();
-    }
-
-    size_t size() const {
-        return itemMap.size();
-    }
+    mutable std::mutex mutex_;
+    std::list<std::pair<Key, CacheItem>> item_list_;
+    std::unordered_map<Key, ListIt> map_;
+    size_t maxSize_;
+    std::chrono::milliseconds maxAge_;
 };
-
-// Cache singleton class
-// class Cache {
-// private:
-//     static std::unique_ptr<LRUCache<std::string, std::vector<std::any>>> instance;
-
-//     Cache() {}
-
-// public:
-//     static LRUCache<std::string, std::vector<std::any>>& getInstance(size_t max = 10000, std::chrono::milliseconds maxAge = std::chrono::milliseconds(1000 * 60 * 10)) {
-//         if (!instance) {
-//             instance = std::make_unique<LRUCache<std::string, std::vector<std::any>>>(max, maxAge);
-//         }
-//         return *instance;
-//     }
-// };
 
 #endif // LRU_CACHE_H

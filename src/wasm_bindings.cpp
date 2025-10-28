@@ -4,35 +4,35 @@
 
 using namespace emscripten;
 
-// Helper functions to convert between JavaScript and C++ types
-std::vector<double> convertJSArrayToVector(const val& jsArray) {
+// Helper functions
+static std::vector<double> convertJSArrayToVector(const val& jsArray) {
     std::vector<double> vec;
     unsigned int length = jsArray["length"].as<unsigned int>();
+    vec.reserve(length);
     for (unsigned int i = 0; i < length; ++i) {
         vec.push_back(jsArray[i].as<double>());
     }
     return vec;
 }
 
-val convertResultsToJS(const std::vector<std::pair<Distance, NodeIndex>>& results) {
+static val convertResultsToJS(const std::vector<std::pair<Distance, NodeIndex>>& results) {
     val jsArray = val::array();
     for (size_t i = 0; i < results.size(); ++i) {
         val item = val::object();
         item.set("distance", results[i].first);
-        item.set("nodeIndex", results[i].second);
+        item.set("nodeIndex", static_cast<unsigned int>(results[i].second));
         jsArray.set(i, item);
     }
     return jsArray;
 }
 
-// Wrapper class for SimpleHNSWIndex with JavaScript-friendly interface
 class SimpleHNSWIndexWrapper {
 private:
     SimpleHNSWIndex index;
 
 public:
-    SimpleHNSWIndexWrapper(int L = 5, double mL = 0.62, int efc = 10, int maxConnections = 16)
-        : index(L, mL, efc, maxConnections) {}
+    SimpleHNSWIndexWrapper(int L = 5, double mL = 0.62, int efc = 10, int maxConnections = 16, unsigned int seed = 0u)
+        : index(L, mL, efc, maxConnections, seed) {}
 
     void insert(const val& jsVector) {
         Vector vec = convertJSArrayToVector(jsVector);
@@ -49,21 +49,18 @@ public:
         return index.toJSON();
     }
 
-    static SimpleHNSWIndexWrapper fromJSON(const std::string& json) {
-        SimpleHNSWIndex loadedIndex = SimpleHNSWIndex::fromJSON(json);
+    static SimpleHNSWIndexWrapper fromJSON(const std::string& jsonStr) {
+        SimpleHNSWIndex loadedIndex = SimpleHNSWIndex::fromJSON(jsonStr);
         SimpleHNSWIndexWrapper wrapper;
-        wrapper.index = loadedIndex;
+        wrapper = SimpleHNSWIndexWrapper();
+        wrapper.index = std::move(loadedIndex);
         return wrapper;
     }
 };
 
 EMSCRIPTEN_BINDINGS(simple_hnsw) {
     class_<SimpleHNSWIndexWrapper>("SimpleHNSWIndex")
-        .constructor<>()
-        .constructor<int>()
-        .constructor<int, double>()
-        .constructor<int, double, int>()
-        .constructor<int, double, int, int>()
+        .constructor<int, double, int, int, unsigned int>()
         .function("insert", &SimpleHNSWIndexWrapper::insert)
         .function("search", &SimpleHNSWIndexWrapper::search)
         .function("toJSON", &SimpleHNSWIndexWrapper::toJSON)
