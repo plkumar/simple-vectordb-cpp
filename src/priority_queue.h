@@ -2,27 +2,23 @@
 #define PRIORITY_QUEUE_H
 
 #include <vector>
-#include <queue>
-#include <cmath>
-#include <set>
 #include <algorithm>
-#include <iostream>
 #include <functional>
 #include <utility>
 
-template<typename T>
+template<typename T, typename Compare = std::less<T>>
 class PriorityQueue {
 private:
     std::vector<T> elements;
-    using Compare = std::function<bool(const T&, const T&)>;
     Compare compareFn;
 
     struct HeapComparator {
         Compare compareFn;
-
         bool operator()(const T& lhs, const T& rhs) const {
-            // Flip operands so compareFn's "smaller" element rises to the top.
-            return compareFn(rhs, lhs);
+            // std::make_heap expects a comparator where the top is the "largest" element;
+            // when using std::less it will create a max-heap. We want compareFn to describe
+            // the ordering so use compareFn on lhs, rhs directly.
+            return compareFn(lhs, rhs);
         }
     };
 
@@ -31,9 +27,9 @@ private:
     }
 
 public:
-    PriorityQueue(std::vector<T> elements, Compare compareFn)
-        : elements(std::move(elements)), compareFn(std::move(compareFn)) {
-        std::make_heap(this->elements.begin(), this->elements.end(), heapComparator());
+    PriorityQueue(std::vector<T> initElements = {}, Compare cmp = Compare())
+        : elements(std::move(initElements)), compareFn(std::move(cmp)) {
+        std::make_heap(elements.begin(), elements.end(), heapComparator());
     }
 
     void push(const T& element) {
@@ -53,9 +49,17 @@ public:
         return element;
     }
 
+    const T& top() const {
+        return elements.front();
+    }
+
     bool isEmpty() const {
         return elements.empty();
     }
+
+    size_t size() const {
+        return elements.size();
+    }
 };
 
-#endif //PRIORITY_QUEUE_H
+#endif // PRIORITY_QUEUE_H

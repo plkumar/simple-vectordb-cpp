@@ -3,15 +3,16 @@
 #include <stdexcept>
 #include <iomanip>
 #include <sstream>
+#include <cmath>
 
 // Function to calculate cosine similarity
-double cosineSimilarity(const std::vector<double>& vecA, const std::vector<double>& vecB, int precision = 6) {
-    // Check if both vectors have the same length
+// Returns double in range [-1, 1]. If either vector has zero magnitude, returns 0.0
+// If rounding is required, caller can round; lightweight rounding option provided.
+double cosineSimilarity(const std::vector<double>& vecA, const std::vector<double>& vecB, int precision = -1) {
     if (vecA.size() != vecB.size()) {
         throw std::invalid_argument("Vectors must have the same length");
     }
 
-    // Compute dot product and magnitudes
     double dotProduct = 0.0;
     double magnitudeA = 0.0;
     double magnitudeB = 0.0;
@@ -25,17 +26,21 @@ double cosineSimilarity(const std::vector<double>& vecA, const std::vector<doubl
     magnitudeA = std::sqrt(magnitudeA);
     magnitudeB = std::sqrt(magnitudeB);
 
-    // Check if either magnitude is zero
-    if (magnitudeA == 0 || magnitudeB == 0) {
-        return 0;
+    if (magnitudeA == 0.0 || magnitudeB == 0.0) {
+        // Returning 0.0 is a pragmatic choice; callers should handle degenerate vectors.
+        return 0.0;
     }
 
-    // Calculate cosine similarity
     double cosineSim = dotProduct / (magnitudeA * magnitudeB);
 
-    // Round to specified precision
-    std::ostringstream oss;
-    oss << std::fixed << std::setprecision(precision) << cosineSim;
-    return std::stod(oss.str());
-}
+    // Clamp to [-1, 1] to avoid small floating point drift issues
+    if (cosineSim > 1.0) cosineSim = 1.0;
+    if (cosineSim < -1.0) cosineSim = -1.0;
 
+    if (precision < 0) {
+        return cosineSim;
+    }
+
+    double power = std::pow(10.0, precision);
+    return std::round(cosineSim * power) / power;
+}
